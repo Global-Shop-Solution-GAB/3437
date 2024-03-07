@@ -1,0 +1,126 @@
+Program.Sub.ScreenSU.Start
+Program.Sub.ScreenSU.End
+
+Program.Sub.Preflight.Start
+
+Program.Sub.Preflight.End
+
+Program.Sub.Main.Start
+'ERM
+'Quote 3348
+'03/05/2012
+
+F.ODBC.Connection!con.OpenConnection(V.Ambient.PDSN,V.Ambient.PUser,V.Ambient.PPass)
+
+'------------------------Pre Save hook ----------------------------------------
+F.Intrinsic.Control.If(V.Caller.Hook,=,25730)
+	F.Intrinsic.Control.CallSub(Save)
+F.Intrinsic.Control.EndIf
+
+'--------------------Pre Delete hook -----------------------------
+F.Intrinsic.Control.If(V.Caller.Hook,=,25750)
+	F.Intrinsic.Control.CallSub(Delete)
+F.Intrinsic.Control.EndIf
+
+F.ODBC.Connection!con.Close
+F.Intrinsic.Control.End
+
+Program.Sub.Main.End
+
+Program.Sub.Save.Start
+V.Local.sSQL.Declare(String)
+V.Local.sEmployee.Declare(String)
+V.Local.sType.Declare(String)
+V.Local.fTime.Declare(Float)
+V.Local.sHour.Declare(String)
+V.Local.sCheck.Declare(String)
+V.Local.sMinute.Declare(String)
+
+V.Local.sEmployee.Set(V.Passed.000096)
+V.Local.sType.Set(V.Passed.000072)
+V.Local.sHour.Set(V.Passed.000163)
+V.Local.sMinute.Set(V.Passed.000166)
+
+
+'This will left pad the employee number with zeros so it will match format in table
+F.Intrinsic.String.LPad(V.Local.sEmployee,"0",5,V.Local.sEmployee)
+
+'---------------The seconds are converted to two spaces so 9 seconds converts to 09 seconds-----------------------
+F.Intrinsic.String.Len(V.Local.sMinute,V.Local.sCheck)
+F.Intrinsic.Control.If(V.Local.sCheck,<>,"2")
+	F.Intrinsic.String.LPad(V.Local.sMinute,"0",2,V.Local.sMinute)
+F.Intrinsic.Control.EndIf
+
+
+'---------------Concat hours and minutes for subtraction -------------------------------
+F.Intrinsic.String.Concat(V.Local.sHour,".",V.Local.sMinute,V.Local.fTime)
+
+'-------------------------Find employee and subtract hours from Vacation or sick hours left ---------------
+F.Intrinsic.String.Build("SELECT * FROM Employee_Mstr WHERE Employee = '{0}' AND Date_Termination = '000000'",V.Local.sEmployee,V.Local.sSQL)
+F.ODBC.Connection!con.OpenRecordsetRW("rst",V.Local.sSQL)
+F.Intrinsic.Control.If(V.ODBC.con!rst.EOF,=,False)
+	F.Intrinsic.Control.If(V.Local.sType,=,"02-SICK")
+		F.Intrinsic.Math.Sub(V.ODBC.con!rst.FieldValFloat!SICK_LEFT,V.Local.fTime,V.Local.fTime)
+		F.ODBC.con!rst.Set!SICK_LEFT(V.Local.fTime)
+	F.Intrinsic.Control.Else
+		F.Intrinsic.Control.If(V.Local.sType,=,"03-VACATION")
+			F.Intrinsic.Math.Sub(V.ODBC.con!rst.FieldValFloat!VACATION_LEFT,V.Local.fTime,V.Local.fTime)
+			F.ODBC.con!rst.Set!VACATION_LEFT(V.Local.fTime)
+		F.Intrinsic.Control.EndIf
+	F.Intrinsic.Control.EndIf
+	F.ODBC.con!rst.Update
+F.Intrinsic.Control.EndIf
+F.ODBC.con!rst.Close
+
+Program.Sub.Save.End
+
+Program.Sub.Delete.Start
+V.Local.sSQL.Declare(String)
+V.Local.sEmployee.Declare(String)
+V.Local.sType.Declare(String)
+V.Local.fTime.Declare(Float)
+V.Local.sHour.Declare(String)
+V.Local.sCheck.Declare(String)
+V.Local.sMinute.Declare(String)
+
+V.Local.sEmployee.Set(V.Passed.000096)
+V.Local.sType.Set(V.Passed.000072)
+V.Local.sHour.Set(V.Passed.000163)
+V.Local.sMinute.Set(V.Passed.000166)
+
+'Left padded the employee number with 0's so it will match the table
+F.Intrinsic.String.LPad(V.Local.sEmployee,"0",5,V.Local.sEmployee)
+
+'---------------The seconds are converted to two spaces so 9 seconds converts to 09 seconds-----------------------
+F.Intrinsic.String.Len(V.Local.sMinute,V.Local.sCheck)
+F.Intrinsic.Control.If(V.Local.sCheck,<>,"2")
+	F.Intrinsic.String.LPad(V.Local.sMinute,"0",2,V.Local.sMinute)
+F.Intrinsic.Control.EndIf
+
+'---------------Concat hours and minutes for subtraction -------------------------------
+F.Intrinsic.String.Concat(V.Local.sHour,".",V.Local.sMinute,V.Local.fTime)
+
+'-------------------------Find employee and add hours back to Vacation or sick hours left ------------------
+F.Intrinsic.String.Build("SELECT * FROM Employee_Mstr WHERE Employee = '{0}'",V.Local.sEmployee,V.Local.sSQL)
+F.ODBC.Connection!con.OpenRecordsetRW("rst",V.Local.sSQL)
+F.Intrinsic.Control.If(V.ODBC.con!rst.EOF,=,False)
+	F.Intrinsic.Control.If(V.Local.sType,=,"02-SICK")
+		F.Intrinsic.Math.Add(V.ODBC.con!rst.FieldValFloat!SICK_LEFT,V.Local.fTime,V.Local.fTime)
+		F.ODBC.con!rst.Set!SICK_LEFT(V.Local.fTime)
+	F.Intrinsic.Control.Else
+		F.Intrinsic.Control.If(V.Local.sType,=,"03-VACATION")
+			F.Intrinsic.Math.Add(V.ODBC.con!rst.FieldValFloat!VACATION_LEFT,V.Local.fTime,V.Local.fTime)
+			F.ODBC.con!rst.Set!VACATION_LEFT(V.Local.fTime)
+		F.Intrinsic.Control.EndIf
+	F.Intrinsic.Control.EndIf
+	F.ODBC.con!rst.Update
+F.Intrinsic.Control.EndIf
+F.ODBC.con!rst.Close
+
+
+Program.Sub.Delete.End
+
+Program.Sub.Comments.Start
+${$0$}$GCG_VACA_SICK_UPDATE$}$ERIC$}$3/5/2012
+Program.Sub.Comments.End
+
